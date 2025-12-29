@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Eye, CheckCircle, Clock, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Eye, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,36 +19,73 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatDate } from '@/utils/helpers';
+import { inquiriesAPI } from '@/api';
+import { toast } from 'sonner';
 
 const InquiriesViewer = () => {
-    const [inquiries, setInquiries] = useState([
-        { id: 1, studentName: 'Ramesh Sharma', parentName: 'Hari Sharma', email: 'hari@email.com', phone: '+977-9801234567', grade: 'Grade 5', message: 'Interested in admission for my son.', date: '2024-12-28', status: 'New' },
-        { id: 2, studentName: 'Sita Poudel', parentName: 'Ram Poudel', email: 'ram@email.com', phone: '+977-9802345678', grade: '+2 Science', message: 'Looking for +2 admission after SEE.', date: '2024-12-27', status: 'Contacted' },
-        { id: 3, studentName: 'Krishna Thapa', parentName: 'Shiva Thapa', email: 'shiva@email.com', phone: '+977-9803456789', grade: 'Grade 1', message: 'Want to enroll my child for Grade 1.', date: '2024-12-26', status: 'New' },
-        { id: 4, studentName: 'Gita Maharjan', parentName: 'Laxmi Maharjan', email: 'laxmi@email.com', phone: '+977-9804567890', grade: 'UKG', message: 'Requesting information about kindergarten program.', date: '2024-12-25', status: 'Pending' },
-    ]);
+    const [inquiries, setInquiries] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedInquiry, setSelectedInquiry] = useState(null);
     const [statusFilter, setStatusFilter] = useState('All');
 
     const statuses = ['All', 'New', 'Contacted', 'Pending', 'Closed'];
 
-    const handleStatusChange = (id, newStatus) => {
-        setInquiries((prev) =>
-            prev.map((inq) => (inq.id === id ? { ...inq, status: newStatus } : inq))
-        );
+    // Fetch inquiries on mount
+    useEffect(() => {
+        fetchInquiries();
+    }, []);
+
+    const fetchInquiries = async () => {
+        try {
+            setLoading(true);
+            const response = await inquiriesAPI.getAll();
+            if (response.data.data) {
+                setInquiries(response.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch inquiries:', error);
+            toast.error('Failed to load inquiries');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm('Are you sure you want to delete this inquiry?')) {
-            setInquiries((prev) => prev.filter((inq) => inq.id !== id));
+    const handleStatusChange = async (id, newStatus) => {
+        try {
+            await inquiriesAPI.updateStatus(id, newStatus);
+            setInquiries((prev) =>
+                prev.map((inq) => (inq._id === id ? { ...inq, status: newStatus } : inq))
+            );
+            if (selectedInquiry?._id === id) {
+                setSelectedInquiry({ ...selectedInquiry, status: newStatus });
+            }
+            toast.success('Status updated');
+        } catch (error) {
+            console.error('Failed to update status:', error);
+            toast.error('Failed to update status');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this inquiry?')) {
+            return;
+        }
+
+        try {
+            await inquiriesAPI.delete(id);
+            setInquiries((prev) => prev.filter((inq) => inq._id !== id));
             setSelectedInquiry(null);
+            toast.success('Inquiry deleted');
+        } catch (error) {
+            console.error('Failed to delete:', error);
+            toast.error('Failed to delete inquiry');
         }
     };
 
     const filteredInquiries = inquiries.filter((inq) => {
-        const matchesSearch = inq.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            inq.parentName.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = inq.studentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            inq.parentName?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'All' || inq.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -62,6 +99,14 @@ const InquiriesViewer = () => {
             default: return 'bg-gray-100 text-gray-700';
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -137,7 +182,7 @@ const InquiriesViewer = () => {
                         </TableHeader>
                         <TableBody>
                             {filteredInquiries.map((inquiry) => (
-                                <TableRow key={inquiry.id}>
+                                <TableRow key={inquiry._id}>
                                     <TableCell className="font-medium">{inquiry.studentName}</TableCell>
                                     <TableCell>{inquiry.parentName}</TableCell>
                                     <TableCell>{inquiry.grade}</TableCell>
@@ -147,16 +192,16 @@ const InquiriesViewer = () => {
                                             <p className="text-gray-500">{inquiry.phone}</p>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-gray-500">{formatDate(inquiry.date)}</TableCell>
+                                    <TableCell className="text-gray-500">{formatDate(inquiry.createdAt)}</TableCell>
                                     <TableCell>
-                                        <Badge className={getStatusColor(inquiry.status)}>{inquiry.status}</Badge>
+                                        <Badge className={getStatusColor(inquiry.status)}>{inquiry.status || 'New'}</Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
                                             <Button variant="ghost" size="sm" onClick={() => setSelectedInquiry(inquiry)}>
                                                 <Eye className="w-4 h-4" />
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(inquiry.id)}>
+                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(inquiry._id)}>
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>
                                         </div>
@@ -198,7 +243,7 @@ const InquiriesViewer = () => {
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Date</p>
-                                    <p className="font-medium">{formatDate(selectedInquiry.date)}</p>
+                                    <p className="font-medium">{formatDate(selectedInquiry.createdAt)}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Email</p>
@@ -215,7 +260,7 @@ const InquiriesViewer = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 mb-1">Message</p>
-                                <p className="bg-gray-50 p-3 rounded-lg">{selectedInquiry.message}</p>
+                                <p className="bg-gray-50 p-3 rounded-lg">{selectedInquiry.message || 'No message'}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 mb-2">Update Status</p>
@@ -225,10 +270,7 @@ const InquiriesViewer = () => {
                                             key={status}
                                             variant={selectedInquiry.status === status ? 'default' : 'outline'}
                                             size="sm"
-                                            onClick={() => {
-                                                handleStatusChange(selectedInquiry.id, status);
-                                                setSelectedInquiry({ ...selectedInquiry, status });
-                                            }}
+                                            onClick={() => handleStatusChange(selectedInquiry._id, status)}
                                             className={selectedInquiry.status === status ? 'bg-green-600' : ''}
                                         >
                                             {status}

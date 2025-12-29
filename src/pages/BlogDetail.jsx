@@ -8,90 +8,77 @@ import {
     Twitter,
     Share2,
     Youtube,
-    ChevronRight
+    Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDate, getSocialShareUrl, isYouTubeUrl, getYouTubeId } from '@/utils/helpers';
+import { blogAPI } from '@/api';
 
 const BlogDetail = () => {
     const { slug } = useParams();
     const [blog, setBlog] = useState(null);
+    const [relatedPosts, setRelatedPosts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
 
-    // Sample blog data - would come from API
     useEffect(() => {
-        // Simulating API call
-        const blogData = {
-            id: 1,
-            slug: 'annual-sports-day-2024',
-            title: 'Annual Sports Day 2024 Celebrated with Great Enthusiasm',
-            content: `
-        <p>The Annual Sports Day 2024 was celebrated with great enthusiasm and sportsmanship at our school campus. Students from all grades participated in various sporting events showcasing their athletic abilities and team spirit.</p>
-        
-        <h2>Event Highlights</h2>
-        <p>The day began with a grand opening ceremony featuring the school march past by all four houses - Red, Blue, Yellow, and Green. The chief guest, Mr. Ram Bahadur Thapa, a renowned sports personality, graced the occasion.</p>
-        
-        <h3>Track Events</h3>
-        <p>The track events included 100m, 200m, and 400m races for different age categories. The relay races were the highlight of the day, with intense competition between the houses.</p>
-        
-        <h3>Field Events</h3>
-        <p>Field events such as long jump, high jump, shot put, and discus throw witnessed remarkable performances from our young athletes.</p>
-        
-        <h2>Winners and Achievements</h2>
-        <p>Green House emerged as the overall champion, followed closely by Blue House. Individual champions were awarded medals and certificates by the chief guest.</p>
-        
-        <blockquote>"This Sports Day has been a testament to our students' dedication and the school's commitment to holistic education." - Principal</blockquote>
-        
-        <p>The event concluded with a colorful closing ceremony and prize distribution. We congratulate all participants and winners for making this event a grand success.</p>
-      `,
-            image: 'https://images.unsplash.com/photo-1461896836934- voices-13a7-7c2a?w=1200&h=600&fit=crop',
-            category: 'Events',
-            author: 'Admin',
-            authorImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-            date: '2024-12-20',
-            youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            socialLinks: {
-                facebook: 'https://facebook.com/svischool',
-                instagram: 'https://instagram.com/svischool',
-            },
+        const fetchBlog = async () => {
+            try {
+                setLoading(true);
+                const response = await blogAPI.getBySlug(slug);
+                if (response.data.data) {
+                    setBlog(response.data.data);
+                    // Fetch related posts
+                    const allResponse = await blogAPI.getAll({ limit: 3 });
+                    if (allResponse.data.data) {
+                        // Filter out current blog and take first 2
+                        const related = allResponse.data.data
+                            .filter(b => b.slug !== slug)
+                            .slice(0, 2);
+                        setRelatedPosts(related);
+                    }
+                } else {
+                    setNotFound(true);
+                }
+            } catch (error) {
+                console.error('Failed to fetch blog:', error);
+                setNotFound(true);
+            } finally {
+                setLoading(false);
+            }
         };
-        setBlog(blogData);
+        fetchBlog();
     }, [slug]);
 
-    if (!blog) {
+    if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
+                <Loader2 className="w-12 h-12 animate-spin text-green-600" />
+            </div>
+        );
+    }
+
+    if (notFound || !blog) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center">
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">Blog Not Found</h1>
+                <Link to="/blog" className="text-green-600 hover:underline">
+                    ← Back to Blog
+                </Link>
             </div>
         );
     }
 
     const shareUrl = window.location.href;
 
-    const relatedPosts = [
-        {
-            id: 2,
-            slug: 'science-exhibition-2024',
-            title: 'Inter-House Science Exhibition',
-            image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=300&h=200&fit=crop',
-            date: '2024-12-10',
-        },
-        {
-            id: 3,
-            slug: 'teachers-day-celebration',
-            title: 'Teachers Day Celebration',
-            image: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=300&h=200&fit=crop',
-            date: '2024-09-05',
-        },
-    ];
-
     return (
         <div className="py-12">
             {/* Hero Image */}
             <section className="relative h-[50vh] min-h-[400px]">
                 <img
-                    src={blog.image}
+                    src={blog.image?.url || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&h=600&fit=crop'}
                     alt={blog.title}
                     className="w-full h-full object-cover"
                 />
@@ -113,14 +100,12 @@ const BlogDetail = () => {
                         </h1>
                         <div className="flex flex-wrap items-center gap-6 mt-6 text-white/80">
                             <div className="flex items-center gap-3">
-                                <img
-                                    src={blog.authorImage}
-                                    alt={blog.author}
-                                    className="w-10 h-10 rounded-full object-cover"
-                                />
+                                <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-bold">
+                                    {blog.author?.name?.charAt(0) || 'A'}
+                                </div>
                                 <div>
-                                    <p className="text-white font-medium">{blog.author}</p>
-                                    <p className="text-sm">{formatDate(blog.date)}</p>
+                                    <p className="text-white font-medium">{blog.author?.name || 'Admin'}</p>
+                                    <p className="text-sm">{formatDate(blog.createdAt)}</p>
                                 </div>
                             </div>
                         </div>
@@ -197,34 +182,36 @@ const BlogDetail = () => {
                         <div className="lg:col-span-1">
                             <div className="sticky top-24 space-y-8">
                                 {/* Related Posts */}
-                                <Card className="border-0 shadow-lg">
-                                    <CardContent className="p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Related Posts</h3>
-                                        <div className="space-y-4">
-                                            {relatedPosts.map((post) => (
-                                                <Link
-                                                    key={post.id}
-                                                    to={`/blog/${post.slug}`}
-                                                    className="flex gap-4 group"
-                                                >
-                                                    <img
-                                                        src={post.image}
-                                                        alt={post.title}
-                                                        className="w-20 h-16 object-cover rounded-lg flex-shrink-0"
-                                                    />
-                                                    <div>
-                                                        <h4 className="font-medium text-gray-900 group-hover:text-green-600 transition-colors line-clamp-2 text-sm">
-                                                            {post.title}
-                                                        </h4>
-                                                        <p className="text-xs text-gray-500 mt-1">
-                                                            {formatDate(post.date)}
-                                                        </p>
-                                                    </div>
-                                                </Link>
-                                            ))}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                {relatedPosts.length > 0 && (
+                                    <Card className="border-0 shadow-lg">
+                                        <CardContent className="p-6">
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Related Posts</h3>
+                                            <div className="space-y-4">
+                                                {relatedPosts.map((post) => (
+                                                    <Link
+                                                        key={post._id}
+                                                        to={`/blog/${post.slug}`}
+                                                        className="flex gap-4 group"
+                                                    >
+                                                        <img
+                                                            src={post.image?.url || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=300&h=200&fit=crop'}
+                                                            alt={post.title}
+                                                            className="w-20 h-16 object-cover rounded-lg flex-shrink-0"
+                                                        />
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-900 group-hover:text-green-600 transition-colors line-clamp-2 text-sm">
+                                                                {post.title}
+                                                            </h4>
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                {formatDate(post.createdAt)}
+                                                            </p>
+                                                        </div>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
 
                                 {/* Follow Us */}
                                 <Card className="border-0 shadow-lg bg-gradient-to-br from-green-600 to-green-700 text-white">
@@ -235,7 +222,7 @@ const BlogDetail = () => {
                                         </p>
                                         <div className="flex gap-3">
                                             <a
-                                                href={blog.socialLinks?.facebook}
+                                                href="https://facebook.com"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors"
@@ -243,7 +230,7 @@ const BlogDetail = () => {
                                                 <Facebook className="w-5 h-5" />
                                             </a>
                                             <a
-                                                href={blog.socialLinks?.instagram}
+                                                href="https://youtube.com"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors"

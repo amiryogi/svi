@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, Search, Image as ImageIcon, Video, Upload } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Search, Image as ImageIcon, Video, Upload, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,17 +14,19 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { GALLERY_CATEGORIES } from '@/utils/constants';
+import { galleryAPI } from '@/api';
+import { toast } from 'sonner';
 
 const GalleryManager = () => {
-    const [items, setItems] = useState([
-        { id: 1, type: 'image', title: 'Campus View', category: 'Academics', url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=300' },
-        { id: 2, type: 'image', title: 'Sports Day', category: 'Sports', url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=300' },
-        { id: 3, type: 'video', title: 'Annual Day', category: 'Events', url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=300', youtubeId: 'dQw4w9WgXcQ' },
-        { id: 4, type: 'image', title: 'Science Lab', category: 'Academics', url: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=300' },
-    ]);
+    const fileInputRef = useRef(null);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const [formData, setFormData] = useState({
         title: '',
         category: 'Events',
@@ -34,38 +36,114 @@ const GalleryManager = () => {
 
     const categories = GALLERY_CATEGORIES;
 
+    // Fetch gallery items on mount
+    useEffect(() => {
+        fetchGallery();
+    }, []);
+
+    const fetchGallery = async () => {
+        try {
+            setLoading(true);
+            const response = await galleryAPI.getAll();
+            if (response.data.data) {
+                setItems(response.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch gallery:', error);
+            toast.error('Failed to load gallery');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const newItem = {
-            id: Date.now(),
-            ...formData,
-            url: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=300',
-        };
-        setItems((prev) => [newItem, ...prev]);
-        resetForm();
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (!file.type.startsWith('image/')) {
+                toast.error('Please select an image file');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error('Image must be less than 10MB');
+                return;
+            }
+            setSelectedFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm('Are you sure you want to delete this item?')) {
-            setItems((prev) => prev.filter((item) => item.id !== id));
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+
+        try {
+            const formDataToSend = new FormData();
+            formDataToSend.append('title', formData.title);
+            formDataToSend.append('category', formData.category);
+            formDataToSend.append('type', formData.type);
+
+            if (formData.type === 'video') {
+                formDataToSend.append('youtubeUrl', formData.youtubeUrl);
+            } else if (selectedFile) {
+                formDataToSend.append('media', selectedFile);
+            } else {
+                toast.error('Please select an image');
+                setSaving(false);
+                return;
+            }
+
+            await galleryAPI.create(formDataToSend);
+            toast.success('Gallery item added successfully!');
+            await fetchGallery();
+            resetForm();
+        } catch (error) {
+            console.error('Save failed:', error);
+            toast.error(error.response?.data?.message || 'Failed to add item');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this item?')) {
+            return;
+        }
+
+        try {
+            await galleryAPI.delete(id);
+            toast.success('Item deleted successfully!');
+            await fetchGallery();
+        } catch (error) {
+            console.error('Delete failed:', error);
+            toast.error(error.response?.data?.message || 'Failed to delete item');
         }
     };
 
     const resetForm = () => {
         setFormData({ title: '', category: 'Events', type: 'image', youtubeUrl: '' });
+        setSelectedFile(null);
+        setImagePreview(null);
         setIsDialogOpen(false);
     };
 
     const filteredItems = items.filter((item) => {
-        const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = item.title?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
         return matchesSearch && matchesCategory;
     });
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -163,13 +241,28 @@ const GalleryManager = () => {
                             )}
                             {formData.type === 'image' && (
                                 <div className="space-y-2">
-                                    <Label>Upload Image</Label>
-                                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center">
-                                        <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                                        <p className="text-sm text-gray-500">Drag & drop or click to upload</p>
-                                        <Input type="file" accept="image/*" className="hidden" id="gallery-upload" />
-                                        <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => document.getElementById('gallery-upload')?.click()}>
-                                            Choose File
+                                    <Label>Upload Image *</Label>
+                                    <div 
+                                        className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center cursor-pointer hover:border-green-400 transition-colors"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        {imagePreview ? (
+                                            <img src={imagePreview} alt="Preview" className="max-h-32 mx-auto rounded" />
+                                        ) : (
+                                            <>
+                                                <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                                                <p className="text-sm text-gray-500">Drag & drop or click to upload</p>
+                                            </>
+                                        )}
+                                        <input 
+                                            ref={fileInputRef}
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={handleFileChange}
+                                        />
+                                        <Button type="button" variant="outline" size="sm" className="mt-2">
+                                            {imagePreview ? 'Change Image' : 'Choose File'}
                                         </Button>
                                     </div>
                                 </div>
@@ -178,8 +271,15 @@ const GalleryManager = () => {
                                 <Button type="button" variant="outline" onClick={resetForm}>
                                     Cancel
                                 </Button>
-                                <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                                    Add Item
+                                <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={saving}>
+                                    {saving ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Adding...
+                                        </>
+                                    ) : (
+                                        'Add Item'
+                                    )}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -190,10 +290,10 @@ const GalleryManager = () => {
             {/* Gallery Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {filteredItems.map((item) => (
-                    <Card key={item.id} className="overflow-hidden border-0 shadow-md group">
+                    <Card key={item._id} className="overflow-hidden border-0 shadow-md group">
                         <div className="relative aspect-square">
                             <img
-                                src={item.url}
+                                src={item.media?.url || item.thumbnail || 'https://via.placeholder.com/300'}
                                 alt={item.title}
                                 className="w-full h-full object-cover"
                             />
@@ -206,7 +306,7 @@ const GalleryManager = () => {
                                 <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => handleDelete(item.id)}
+                                    onClick={() => handleDelete(item._id)}
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </Button>

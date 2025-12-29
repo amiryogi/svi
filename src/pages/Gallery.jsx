@@ -1,26 +1,31 @@
-import { useState } from 'react';
-import { X, Play, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Play, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { GALLERY_CATEGORIES } from '@/utils/constants';
+import { galleryAPI } from '@/api';
+import { getYouTubeId } from '@/utils/helpers';
 
 const Gallery = () => {
+    const [galleryItems, setGalleryItems] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState('All');
     const [selectedImage, setSelectedImage] = useState(null);
 
-    // Sample gallery data - would come from API
-    const galleryItems = [
-        { id: 1, type: 'image', url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&h=400&fit=crop', title: 'Campus View', category: 'Academics' },
-        { id: 2, type: 'image', url: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=600&h=400&fit=crop', title: 'Classroom Learning', category: 'Academics' },
-        { id: 3, type: 'image', url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&h=400&fit=crop', title: 'Basketball Match', category: 'Sports' },
-        { id: 4, type: 'video', url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&h=400&fit=crop', youtubeId: 'dQw4w9WgXcQ', title: 'Annual Day Performance', category: 'Events' },
-        { id: 5, type: 'image', url: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=600&h=400&fit=crop', title: 'Science Lab', category: 'Academics' },
-        { id: 6, type: 'image', url: 'https://images.unsplash.com/photo-1594608661623-aa0bd3a69d98?w=600&h=400&fit=crop', title: 'Dashain Celebration', category: 'Celebrations' },
-        { id: 7, type: 'image', url: 'https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=600&h=400&fit=crop', title: 'Library', category: 'Academics' },
-        { id: 8, type: 'image', url: 'https://images.unsplash.com/photo-1540479859555-17af45c78602?w=600&h=400&fit=crop', title: 'Football Tournament', category: 'Sports' },
-        { id: 9, type: 'image', url: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=600&h=400&fit=crop', title: 'Graduation Day', category: 'Events' },
-        { id: 10, type: 'image', url: 'https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=600&h=400&fit=crop', title: 'Computer Lab', category: 'Academics' },
-        { id: 11, type: 'image', url: 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=600&h=400&fit=crop', title: 'Quiz Competition', category: 'Competitions' },
-        { id: 12, type: 'image', url: 'https://images.unsplash.com/photo-1544776193-352d25ca82cd?w=600&h=400&fit=crop', title: 'Field Trip', category: 'Field Trips' },
-    ];
+    // Fetch gallery items on mount
+    useEffect(() => {
+        const fetchGallery = async () => {
+            try {
+                const response = await galleryAPI.getAll();
+                if (response.data.data) {
+                    setGalleryItems(response.data.data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch gallery:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchGallery();
+    }, []);
 
     const filteredItems = activeCategory === 'All'
         ? galleryItems
@@ -30,7 +35,7 @@ const Gallery = () => {
     const closeLightbox = () => setSelectedImage(null);
 
     const navigateImage = (direction) => {
-        const currentIndex = filteredItems.findIndex((item) => item.id === selectedImage.id);
+        const currentIndex = filteredItems.findIndex((item) => item._id === selectedImage._id);
         let newIndex;
         if (direction === 'next') {
             newIndex = currentIndex === filteredItems.length - 1 ? 0 : currentIndex + 1;
@@ -39,6 +44,14 @@ const Gallery = () => {
         }
         setSelectedImage(filteredItems[newIndex]);
     };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="py-12">
@@ -80,12 +93,12 @@ const Gallery = () => {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {filteredItems.map((item) => (
                             <div
-                                key={item.id}
+                                key={item._id}
                                 className="relative group cursor-pointer overflow-hidden rounded-xl aspect-square"
                                 onClick={() => openLightbox(item)}
                             >
                                 <img
-                                    src={item.url}
+                                    src={item.media?.url || item.thumbnail || 'https://via.placeholder.com/600'}
                                     alt={item.title}
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                 />
@@ -155,7 +168,7 @@ const Gallery = () => {
                         {selectedImage.type === 'video' ? (
                             <div className="aspect-video rounded-xl overflow-hidden">
                                 <iframe
-                                    src={`https://www.youtube.com/embed/${selectedImage.youtubeId}?autoplay=1`}
+                                    src={`https://www.youtube.com/embed/${getYouTubeId(selectedImage.youtubeUrl)}?autoplay=1`}
                                     title={selectedImage.title}
                                     className="w-full h-full"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -164,7 +177,7 @@ const Gallery = () => {
                             </div>
                         ) : (
                             <img
-                                src={selectedImage.url.replace('w=600', 'w=1200').replace('h=400', 'h=800')}
+                                src={selectedImage.media?.url || selectedImage.thumbnail}
                                 alt={selectedImage.title}
                                 className="max-h-[80vh] mx-auto rounded-xl"
                             />

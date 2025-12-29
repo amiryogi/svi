@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     BookOpen,
     Users,
@@ -10,109 +10,89 @@ import {
     Calculator,
     Palette,
     Music,
-    Trophy
+    Trophy,
+    Loader2
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { ACADEMIC_LEVELS, APP_NAME } from '@/utils/constants';
+import { academicsAPI } from '@/api';
 
 const Academics = () => {
-    const [activeTab, setActiveTab] = useState('kindergarten');
+    const [programs, setPrograms] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('');
 
-    const programDetails = {
-        kindergarten: {
-            title: 'Kindergarten',
-            subtitle: 'Pre-School, LKG & UKG',
-            description: 'Our early childhood program focuses on play-based learning that nurtures creativity, social skills, and foundational literacy.',
-            image: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&h=400&fit=crop',
-            features: [
-                { icon: Palette, text: 'Creative Art & Craft Activities' },
-                { icon: Music, text: 'Music and Movement' },
-                { icon: Users, text: 'Social Skill Development' },
-                { icon: BookOpen, text: 'Story Time & Early Literacy' },
-            ],
-            subjects: ['English', 'Nepali', 'Mathematics', 'EVS', 'Art & Craft', 'Music', 'Physical Education'],
-            timing: '10:00 AM - 2:00 PM',
-            classSize: '20-25 students',
-        },
-        primary: {
-            title: 'Primary Level',
-            subtitle: 'Grade 1 to Grade 5',
-            description: 'Building strong academic foundations while encouraging curiosity and independent thinking.',
-            image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop',
-            features: [
-                { icon: BookOpen, text: 'Activity-Based Learning' },
-                { icon: Calculator, text: 'Strong Math Foundation' },
-                { icon: Trophy, text: 'Inter-House Competitions' },
-                { icon: Users, text: 'Group Projects & Collaboration' },
-            ],
-            subjects: ['English', 'Nepali', 'Mathematics', 'Science', 'Social Studies', 'Computer', 'Health & Physical Education', 'Moral Education'],
-            timing: '9:30 AM - 3:30 PM',
-            classSize: '25-30 students',
-        },
-        middle: {
-            title: 'Middle School',
-            subtitle: 'Grade 6 to Grade 8',
-            description: 'Transitioning students to more advanced concepts while developing critical thinking and research skills.',
-            image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&h=400&fit=crop',
-            features: [
-                { icon: Beaker, text: 'Science Lab Experiments' },
-                { icon: Calculator, text: 'Advanced Mathematics' },
-                { icon: BookOpen, text: 'Language & Literature' },
-                { icon: Trophy, text: 'Academic Competitions' },
-            ],
-            subjects: ['English', 'Nepali', 'Mathematics', 'Science', 'Social Studies', 'Optional Subjects', 'Computer Science', 'Health & Physical Education'],
-            timing: '9:30 AM - 4:00 PM',
-            classSize: '30-35 students',
-        },
-        secondary: {
-            title: 'Secondary Level',
-            subtitle: 'Grade 9 & 10 (SEE)',
-            description: 'Comprehensive preparation for the SEE examination with focused academic guidance and career counseling.',
-            image: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&h=400&fit=crop',
-            features: [
-                { icon: GraduationCap, text: 'SEE Exam Preparation' },
-                { icon: Beaker, text: 'Well-Equipped Labs' },
-                { icon: Users, text: 'Career Counseling' },
-                { icon: Award, text: 'Scholarship Programs' },
-            ],
-            subjects: ['Compulsory English', 'Compulsory Nepali', 'Compulsory Mathematics', 'Science', 'Social Studies', 'Optional Mathematics', 'Computer Science', 'Account/Economics'],
-            timing: '6:30 AM - 2:30 PM',
-            classSize: '35-40 students',
-        },
-        'plus-two-science': {
-            title: 'NEB +2 Science',
-            subtitle: 'Grade 11 & 12',
-            description: 'Rigorous science program preparing students for medical, engineering, and technical careers.',
-            image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&h=400&fit=crop',
-            features: [
-                { icon: Beaker, text: 'Advanced Science Labs' },
-                { icon: GraduationCap, text: 'Entrance Exam Coaching' },
-                { icon: Users, text: 'Expert Faculty' },
-                { icon: Award, text: 'NEB Excellence' },
-            ],
-            subjects: ['English', 'Nepali', 'Physics', 'Chemistry', 'Mathematics/Biology', 'Computer Science'],
-            timing: '6:30 AM - 12:30 PM',
-            classSize: '40-45 students',
-        },
-        'plus-two-management': {
-            title: 'NEB +2 Management',
-            subtitle: 'Grade 11 & 12',
-            description: 'Business-focused curriculum preparing students for commerce, economics, and management fields.',
-            image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=400&fit=crop',
-            features: [
-                { icon: Calculator, text: 'Business Studies' },
-                { icon: GraduationCap, text: 'Banking & Finance' },
-                { icon: Users, text: 'Industry Exposure' },
-                { icon: Award, text: 'Practical Projects' },
-            ],
-            subjects: ['English', 'Nepali', 'Account', 'Economics', 'Business Studies', 'Hotel Management/Marketing'],
-            timing: '6:30 AM - 12:30 PM',
-            classSize: '40-45 students',
-        },
+    useEffect(() => {
+        const fetchPrograms = async () => {
+            try {
+                const response = await academicsAPI.getAll();
+                if (response.data.data) {
+                    const fetchedPrograms = response.data.data.filter(p => p.active !== false);
+                    setPrograms(fetchedPrograms);
+                    if (fetchedPrograms.length > 0) {
+                        setActiveTab(fetchedPrograms[0]._id);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch programs:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPrograms();
+    }, []);
+
+    // Helper to get icon based on subject or keyword
+    const getFeatureIcon = (text) => {
+        const lower = text.toLowerCase();
+        if (lower.includes('science') || lower.includes('lab')) return Beaker;
+        if (lower.includes('math') || lower.includes('business')) return Calculator;
+        if (lower.includes('art') || lower.includes('craft')) return Palette;
+        if (lower.includes('music') || lower.includes('dance')) return Music;
+        if (lower.includes('sport') || lower.includes('game')) return Trophy;
+        if (lower.includes('exam') || lower.includes('career')) return GraduationCap;
+        return BookOpen;
     };
 
-    const currentProgram = programDetails[activeTab];
+    // Helper to get features list (if not in DB, generate from description/subjects)
+    const getFeatures = (program) => {
+        // If we had stored features in DB we would use them. 
+        // For now, we'll generate some generic ones or extract from description if possible.
+        // This is a placeholder logic to match the previous design's rich UI.
+        const defaultFeatures = [
+            { icon: BookOpen, text: 'Comprehensive Curriculum' },
+            { icon: Users, text: 'Experienced Faculty' },
+            { icon: Clock, text: 'Regular Assessment' },
+            { icon: Award, text: 'Holistic Development' },
+        ];
+        return defaultFeatures;
+    };
+
+    const getProgramImage = (programName) => {
+        const lower = programName.toLowerCase();
+        if (lower.includes('kindergarten') || lower.includes('pre-school'))
+            return 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&h=400&fit=crop';
+        if (lower.includes('primary'))
+            return 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop';
+        if (lower.includes('middle'))
+            return 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&h=400&fit=crop';
+        if (lower.includes('secondary') || lower.includes('see'))
+            return 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&h=400&fit=crop';
+        if (lower.includes('science'))
+            return 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&h=400&fit=crop';
+        if (lower.includes('management') || lower.includes('business'))
+            return 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=400&fit=crop';
+        
+        return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=400&fit=crop';
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="py-12">
@@ -137,43 +117,44 @@ const Academics = () => {
             {/* Programs Content */}
             <section className="py-16">
                 <div className="container mx-auto px-4">
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-                        {/* Tab Navigation */}
-                        <div className="overflow-x-auto pb-2">
-                            <TabsList className="inline-flex w-full lg:w-auto bg-gray-100 p-1 rounded-xl">
-                                {ACADEMIC_LEVELS.map((level) => (
-                                    <TabsTrigger
-                                        key={level.id}
-                                        value={level.id}
-                                        className="px-4 py-2.5 text-sm font-medium whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-md rounded-lg transition-all"
-                                    >
-                                        {level.name}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        </div>
+                    {programs.length > 0 ? (
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+                            {/* Tab Navigation */}
+                            <div className="overflow-x-auto pb-2">
+                                <TabsList className="inline-flex w-full lg:w-auto bg-gray-100 p-1 rounded-xl">
+                                    {programs.map((program) => (
+                                        <TabsTrigger
+                                            key={program._id}
+                                            value={program._id}
+                                            className="px-4 py-2.5 text-sm font-medium whitespace-nowrap data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-md rounded-lg transition-all"
+                                        >
+                                            {program.name}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </div>
 
-                        {/* Tab Content */}
-                        {ACADEMIC_LEVELS.map((level) => {
-                            const program = programDetails[level.id];
-                            return (
-                                <TabsContent key={level.id} value={level.id} className="mt-8">
+                            {/* Tab Content */}
+                            {programs.map((program) => (
+                                <TabsContent key={program._id} value={program._id} className="mt-8">
                                     <div className="grid lg:grid-cols-2 gap-8 items-start">
                                         {/* Left Column - Info */}
                                         <div>
-                                            <span className="text-green-600 font-semibold text-sm uppercase tracking-wider">
-                                                {program.subtitle}
-                                            </span>
+                                            {program.subtitle && (
+                                                <span className="text-green-600 font-semibold text-sm uppercase tracking-wider">
+                                                    {program.subtitle}
+                                                </span>
+                                            )}
                                             <h2 className="text-3xl font-bold text-gray-900 mt-2 mb-4">
-                                                {program.title}
+                                                {program.name}
                                             </h2>
                                             <p className="text-gray-600 text-lg mb-8">
                                                 {program.description}
                                             </p>
 
-                                            {/* Features */}
+                                            {/* Features (Generated based on content) */}
                                             <div className="grid sm:grid-cols-2 gap-4 mb-8">
-                                                {program.features.map((feature, index) => {
+                                                {getFeatures(program).map((feature, index) => {
                                                     const Icon = feature.icon;
                                                     return (
                                                         <div key={index} className="flex items-center gap-3">
@@ -188,24 +169,28 @@ const Academics = () => {
 
                                             {/* Info Cards */}
                                             <div className="grid sm:grid-cols-2 gap-4">
-                                                <Card className="border-0 shadow-md">
-                                                    <CardContent className="p-4 flex items-center gap-3">
-                                                        <Clock className="w-5 h-5 text-yellow-600" />
-                                                        <div>
-                                                            <p className="text-sm text-gray-500">School Hours</p>
-                                                            <p className="font-semibold text-gray-900">{program.timing}</p>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                                <Card className="border-0 shadow-md">
-                                                    <CardContent className="p-4 flex items-center gap-3">
-                                                        <Users className="w-5 h-5 text-blue-600" />
-                                                        <div>
-                                                            <p className="text-sm text-gray-500">Class Size</p>
-                                                            <p className="font-semibold text-gray-900">{program.classSize}</p>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
+                                                {program.timing && (
+                                                    <Card className="border-0 shadow-md">
+                                                        <CardContent className="p-4 flex items-center gap-3">
+                                                            <Clock className="w-5 h-5 text-yellow-600" />
+                                                            <div>
+                                                                <p className="text-sm text-gray-500">School Hours</p>
+                                                                <p className="font-semibold text-gray-900">{program.timing}</p>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
+                                                {program.classSize && (
+                                                    <Card className="border-0 shadow-md">
+                                                        <CardContent className="p-4 flex items-center gap-3">
+                                                            <Users className="w-5 h-5 text-blue-600" />
+                                                            <div>
+                                                                <p className="text-sm text-gray-500">Class Size</p>
+                                                                <p className="font-semibold text-gray-900">{program.classSize}</p>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
                                             </div>
                                         </div>
 
@@ -213,41 +198,47 @@ const Academics = () => {
                                         <div className="space-y-6">
                                             <div className="rounded-2xl overflow-hidden shadow-xl">
                                                 <img
-                                                    src={program.image}
-                                                    alt={program.title}
+                                                    src={getProgramImage(program.name)}
+                                                    alt={program.name}
                                                     className="w-full h-64 object-cover"
                                                 />
                                             </div>
 
                                             {/* Subjects */}
-                                            <Card className="border-0 shadow-lg">
-                                                <CardContent className="p-6">
-                                                    <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                                        <BookOpen className="w-5 h-5 text-green-600" />
-                                                        Subjects Offered
-                                                    </h3>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {program.subjects.map((subject, index) => (
-                                                            <span
-                                                                key={index}
-                                                                className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium"
-                                                            >
-                                                                {subject}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
+                                            {program.subjects && program.subjects.length > 0 && (
+                                                <Card className="border-0 shadow-lg">
+                                                    <CardContent className="p-6">
+                                                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                                            <BookOpen className="w-5 h-5 text-green-600" />
+                                                            Subjects Offered
+                                                        </h3>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {program.subjects.map((subject, index) => (
+                                                                <span
+                                                                    key={index}
+                                                                    className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium"
+                                                                >
+                                                                    {subject}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            )}
                                         </div>
                                     </div>
                                 </TabsContent>
-                            );
-                        })}
-                    </Tabs>
+                            ))}
+                        </Tabs>
+                    ) : (
+                        <div className="text-center py-12">
+                            <p className="text-gray-500 text-lg">No academic programs currently available.</p>
+                        </div>
+                    )}
                 </div>
             </section>
 
-            {/* Extracurricular */}
+            {/* Extracurricular (Static for now as it doesn't have a backend model yet) */}
             <section className="py-16 bg-gray-50">
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-12">

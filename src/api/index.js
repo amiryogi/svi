@@ -3,13 +3,12 @@ import api from './axios';
 export const authAPI = {
     login: (credentials) => api.post('/auth/login', credentials),
     logout: () => api.post('/auth/logout'),
-    getProfile: () => api.get('/auth/profile'),
+    getProfile: () => api.get('/auth/me'),
 };
 
 export const heroAPI = {
     get: () => api.get('/hero'),
-    update: (data) => api.put('/hero', data),
-    uploadVideo: (formData) => api.post('/hero/video', formData, {
+    update: (formData) => api.put('/hero', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     }),
 };
@@ -23,23 +22,28 @@ export const noticesAPI = {
 };
 
 export const academicsAPI = {
-    getAll: () => api.get('/academics'),
-    getByLevel: (level) => api.get(`/academics/${level}`),
-    create: (data) => api.post('/academics', data),
-    update: (id, data) => api.put(`/academics/${id}`, data),
-    delete: (id) => api.delete(`/academics/${id}`),
+    getAll: () => api.get('/programs'),
+    getById: (id) => api.get(`/programs/${id}`),
+    create: (formData) => api.post('/programs', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+    update: (id, formData) => api.put(`/programs/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+    delete: (id) => api.delete(`/programs/${id}`),
 };
 
 export const blogAPI = {
     getAll: (params) => api.get('/blogs', { params }),
     getBySlug: (slug) => api.get(`/blogs/${slug}`),
     getFeatured: () => api.get('/blogs/featured'),
-    create: (data) => api.post('/blogs', data),
-    update: (id, data) => api.put(`/blogs/${id}`, data),
-    delete: (id) => api.delete(`/blogs/${id}`),
-    uploadImage: (formData) => api.post('/blogs/upload', formData, {
+    create: (formData) => api.post('/blogs', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     }),
+    update: (id, formData) => api.put(`/blogs/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+    delete: (id) => api.delete(`/blogs/${id}`),
 };
 
 export const galleryAPI = {

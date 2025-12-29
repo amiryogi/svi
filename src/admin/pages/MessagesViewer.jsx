@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Eye, Mail, Trash2, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Eye, Mail, Trash2, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,46 +19,89 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatDate, truncateText } from '@/utils/helpers';
+import { messagesAPI } from '@/api';
+import { toast } from 'sonner';
 
 const MessagesViewer = () => {
-    const [messages, setMessages] = useState([
-        { id: 1, name: 'Hari Sharma', email: 'hari@email.com', phone: '+977-9801234567', subject: 'About admission process', message: 'I would like to know more about the admission process for Grade 5. What documents are required?', date: '2024-12-28', read: false },
-        { id: 2, name: 'Former Alumni', email: 'alumni@email.com', phone: '', subject: 'Request for recommendation', message: 'I am a former student (Batch 2015) and need a recommendation letter for my further studies.', date: '2024-12-27', read: false },
-        { id: 3, name: 'ABC Sports Equipment', email: 'vendor@sports.com', phone: '+977-1-5555555', subject: 'Sports equipment quote', message: 'We are pleased to offer our latest sports equipment for your school. Please find attached our catalog.', date: '2024-12-26', read: true },
-        { id: 4, name: 'Parent Concern', email: 'parent@email.com', phone: '+977-9807654321', subject: 'School bus timing', message: 'I would like to discuss the school bus timing for my child. The current schedule is not convenient.', date: '2024-12-25', read: true },
-    ]);
+    const [messages, setMessages] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [filter, setFilter] = useState('All');
 
-    const handleMarkRead = (id) => {
-        setMessages((prev) =>
-            prev.map((msg) => (msg.id === id ? { ...msg, read: true } : msg))
-        );
-    };
+    // Fetch messages on mount
+    useEffect(() => {
+        fetchMessages();
+    }, []);
 
-    const handleDelete = (id) => {
-        if (window.confirm('Are you sure you want to delete this message?')) {
-            setMessages((prev) => prev.filter((msg) => msg.id !== id));
-            setSelectedMessage(null);
+    const fetchMessages = async () => {
+        try {
+            setLoading(true);
+            const response = await messagesAPI.getAll();
+            if (response.data.data) {
+                setMessages(response.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch messages:', error);
+            toast.error('Failed to load messages');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleViewMessage = (message) => {
+    const handleMarkRead = async (id) => {
+        try {
+            await messagesAPI.markRead(id);
+            setMessages((prev) =>
+                prev.map((msg) => (msg._id === id ? { ...msg, read: true } : msg))
+            );
+        } catch (error) {
+            console.error('Failed to mark as read:', error);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this message?')) {
+            return;
+        }
+
+        try {
+            await messagesAPI.delete(id);
+            setMessages((prev) => prev.filter((msg) => msg._id !== id));
+            setSelectedMessage(null);
+            toast.success('Message deleted');
+        } catch (error) {
+            console.error('Failed to delete:', error);
+            toast.error('Failed to delete message');
+        }
+    };
+
+    const handleViewMessage = async (message) => {
         setSelectedMessage(message);
         if (!message.read) {
-            handleMarkRead(message.id);
+            await handleMarkRead(message._id);
+            setMessages((prev) =>
+                prev.map((msg) => (msg._id === message._id ? { ...msg, read: true } : msg))
+            );
         }
     };
 
     const filteredMessages = messages.filter((msg) => {
-        const matchesSearch = msg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            msg.subject.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = msg.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            msg.subject?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesFilter = filter === 'All' ||
             (filter === 'Unread' && !msg.read) ||
             (filter === 'Read' && msg.read);
         return matchesSearch && matchesFilter;
     });
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -126,7 +169,7 @@ const MessagesViewer = () => {
                         </TableHeader>
                         <TableBody>
                             {filteredMessages.map((message) => (
-                                <TableRow key={message.id} className={!message.read ? 'bg-green-50/50' : ''}>
+                                <TableRow key={message._id} className={!message.read ? 'bg-green-50/50' : ''}>
                                     <TableCell>
                                         {!message.read && <span className="w-2 h-2 bg-green-500 rounded-full block"></span>}
                                     </TableCell>
@@ -138,18 +181,18 @@ const MessagesViewer = () => {
                                         <p className={`${!message.read ? 'font-semibold' : ''}`}>{message.subject}</p>
                                         <p className="text-sm text-gray-500">{truncateText(message.message, 50)}</p>
                                     </TableCell>
-                                    <TableCell className="text-gray-500">{formatDate(message.date)}</TableCell>
+                                    <TableCell className="text-gray-500">{formatDate(message.createdAt)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
                                             <Button variant="ghost" size="sm" onClick={() => handleViewMessage(message)}>
                                                 <Eye className="w-4 h-4" />
                                             </Button>
                                             {!message.read && (
-                                                <Button variant="ghost" size="sm" onClick={() => handleMarkRead(message.id)}>
+                                                <Button variant="ghost" size="sm" onClick={() => handleMarkRead(message._id)}>
                                                     <CheckCircle className="w-4 h-4 text-green-600" />
                                                 </Button>
                                             )}
-                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(message.id)}>
+                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(message._id)}>
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>
                                         </div>
@@ -183,7 +226,7 @@ const MessagesViewer = () => {
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Date</p>
-                                    <p className="font-medium">{formatDate(selectedMessage.date)}</p>
+                                    <p className="font-medium">{formatDate(selectedMessage.createdAt)}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Email</p>
@@ -217,7 +260,7 @@ const MessagesViewer = () => {
                                         Reply via Email
                                     </a>
                                 </Button>
-                                <Button variant="outline" onClick={() => handleDelete(selectedMessage.id)} className="text-red-600">
+                                <Button variant="outline" onClick={() => handleDelete(selectedMessage._id)} className="text-red-600">
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
                             </div>

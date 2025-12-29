@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
     GraduationCap,
@@ -12,8 +13,46 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { APP_NAME, APP_TAGLINE } from '@/utils/constants';
+import { formatDate } from '@/utils/helpers';
+import { heroAPI, noticesAPI } from '@/api';
 
 const Home = () => {
+    // Hero data from API
+    const [heroData, setHeroData] = useState({
+        videoUrl: 'https://cdn.pixabay.com/video/2020/05/25/40088-424930977_large.mp4',
+        overlayTitle: `Welcome to ${APP_NAME}`,
+        overlaySubtitle: APP_TAGLINE,
+        ctaText: 'Apply Now',
+        ctaLink: '/admissions',
+        secondaryCta: 'Learn More',
+        secondaryCtaLink: '/about',
+    });
+
+    // Fetch hero data on mount
+    useEffect(() => {
+        const fetchHero = async () => {
+            try {
+                const response = await heroAPI.get();
+                if (response.data.data) {
+                    const hero = response.data.data;
+                    setHeroData({
+                        videoUrl: hero.video?.url || heroData.videoUrl,
+                        overlayTitle: hero.overlayTitle || heroData.overlayTitle,
+                        overlaySubtitle: hero.overlaySubtitle || heroData.overlaySubtitle,
+                        ctaText: hero.ctaText || 'Apply Now',
+                        ctaLink: hero.ctaLink || '/admissions',
+                        secondaryCta: hero.secondaryCta || 'Learn More',
+                        secondaryCtaLink: hero.secondaryCtaLink || '/about',
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to fetch hero:', error);
+                // Keep default values
+            }
+        };
+        fetchHero();
+    }, []);
+
     // Sample data - would come from API
     const stats = [
         { icon: GraduationCap, value: '2000+', label: 'Students', color: 'from-green-500 to-green-600' },
@@ -49,12 +88,22 @@ const Home = () => {
         },
     ];
 
-    const notices = [
-        { id: 1, title: 'Admission Open for 2081 BS', date: '2024-12-25', type: 'Admission' },
-        { id: 2, title: 'Annual Sports Day Announcement', date: '2024-12-20', type: 'Event' },
-        { id: 3, title: 'Parent-Teacher Meeting Schedule', date: '2024-12-18', type: 'Meeting' },
-        { id: 4, title: 'Winter Break Notice', date: '2024-12-15', type: 'Holiday' },
-    ];
+    const [notices, setNotices] = useState([]);
+
+    // Fetch notices on mount
+    useEffect(() => {
+        const fetchNotices = async () => {
+            try {
+                const response = await noticesAPI.getAll({ limit: 4 });
+                if (response.data.data) {
+                    setNotices(response.data.data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch notices:', error);
+            }
+        };
+        fetchNotices();
+    }, []);
 
     return (
         <div className="overflow-hidden">
@@ -69,9 +118,10 @@ const Home = () => {
                         playsInline
                         className="w-full h-full object-cover"
                         poster="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1920&h=1080&fit=crop"
+                        key={heroData.videoUrl} // Force re-render when URL changes
                     >
                         <source
-                            src="https://cdn.pixabay.com/video/2020/05/25/40088-424930977_large.mp4"
+                            src={heroData.videoUrl}
                             type="video/mp4"
                         />
                     </video>
@@ -88,34 +138,42 @@ const Home = () => {
                         </div>
 
                         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-                            Welcome to{' '}
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-yellow-400">
-                                {APP_NAME}
-                            </span>
+                            {heroData.overlayTitle.includes(APP_NAME) ? (
+                                <>
+                                    Welcome to{' '}
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-yellow-400">
+                                        {APP_NAME}
+                                    </span>
+                                </>
+                            ) : (
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-yellow-400">
+                                    {heroData.overlayTitle}
+                                </span>
+                            )}
                         </h1>
 
                         <p className="text-xl text-gray-300 mb-8 max-w-2xl leading-relaxed">
-                            {APP_TAGLINE}. Providing quality education from Kindergarten to Grade 12, including NEB +2 Science and Management programs.
+                            {heroData.overlaySubtitle}. Providing quality education from Kindergarten to Grade 12, including NEB +2 Science and Management programs.
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <Link to="/admissions">
+                            <Link to={heroData.ctaLink}>
                                 <Button
                                     size="lg"
                                     className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-2xl shadow-green-500/30 transition-all duration-300 group"
                                 >
-                                    Apply Now
+                                    {heroData.ctaText}
                                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                                 </Button>
                             </Link>
-                            <Link to="/about">
+                            <Link to={heroData.secondaryCtaLink}>
                                 <Button
                                     size="lg"
                                     variant="outline"
                                     className="border-white/30 text-white hover:bg-white/10 backdrop-blur-sm"
                                 >
                                     <Play className="mr-2 h-5 w-5" />
-                                    Learn More
+                                    {heroData.secondaryCta}
                                 </Button>
                             </Link>
                         </div>
@@ -223,10 +281,10 @@ const Home = () => {
                         {/* Right Column - Notices */}
                         <div className="lg:w-2/3">
                             <div className="grid gap-4">
-                                {notices.map((notice) => (
+                                {notices.length > 0 ? notices.map((notice) => (
                                     <Link
-                                        key={notice.id}
-                                        to={`/blog/${notice.id}`}
+                                        key={notice._id}
+                                        to={`/notices/${notice._id}`}
                                         className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 group"
                                     >
                                         <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
@@ -234,16 +292,18 @@ const Home = () => {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <span className="text-xs font-medium text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">
-                                                {notice.type}
+                                                {notice.type || 'Notice'}
                                             </span>
                                             <h4 className="text-gray-900 font-semibold mt-1 group-hover:text-green-600 transition-colors truncate">
                                                 {notice.title}
                                             </h4>
-                                            <p className="text-sm text-gray-500">{notice.date}</p>
+                                            <p className="text-sm text-gray-500">{formatDate(notice.createdAt)}</p>
                                         </div>
                                         <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all" />
                                     </Link>
-                                ))}
+                                )) : (
+                                    <p className="text-gray-500 text-center py-4">No notices available.</p>
+                                )}
                             </div>
                         </div>
                     </div>

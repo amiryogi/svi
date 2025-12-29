@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, Search, Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Pencil, Trash2, Search, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,26 +24,50 @@ import {
 } from '@/components/ui/table';
 import { formatDate, truncateText } from '@/utils/helpers';
 import { BLOG_CATEGORIES } from '@/utils/constants';
+import { blogAPI } from '@/api';
+import { toast } from 'sonner';
 
 const BlogManager = () => {
-    const [blogs, setBlogs] = useState([
-        { id: 1, title: 'Annual Sports Day 2024', excerpt: 'Students participated in various events...', category: 'Events', date: '2024-12-20', published: true, image: 'https://images.unsplash.com/photo-1461896836934- voices-13a7-7c2a?w=100' },
-        { id: 2, title: 'SEE Results - 95% Pass', excerpt: 'Outstanding results achieved...', category: 'Achievements', date: '2024-12-15', published: true, image: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=100' },
-        { id: 3, title: 'Science Exhibition', excerpt: 'Young scientists displayed projects...', category: 'Academic', date: '2024-12-10', published: false, image: null },
-    ]);
+    const fileInputRef = useRef(null);
+    const [blogs, setBlogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingBlog, setEditingBlog] = useState(null);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const [formData, setFormData] = useState({
         title: '',
         excerpt: '',
         content: '',
         category: 'News',
         youtubeUrl: '',
-        published: true,
+        status: 'published',
+        featured: false,
     });
 
     const categories = BLOG_CATEGORIES.filter(c => c !== 'All');
+
+    // Fetch blogs on mount
+    useEffect(() => {
+        fetchBlogs();
+    }, []);
+
+    const fetchBlogs = async () => {
+        try {
+            setLoading(true);
+            const response = await blogAPI.getAll();
+            if (response.data.data) {
+                setBlogs(response.data.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch blogs:', error);
+            toast.error('Failed to load blogs');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -53,56 +77,109 @@ const BlogManager = () => {
         }));
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (editingBlog) {
-            setBlogs((prev) =>
-                prev.map((b) =>
-                    b.id === editingBlog.id
-                        ? { ...b, ...formData, date: new Date().toISOString().split('T')[0] }
-                        : b
-                )
-            );
-        } else {
-            const newBlog = {
-                id: Date.now(),
-                ...formData,
-                date: new Date().toISOString().split('T')[0],
-                image: null,
-            };
-            setBlogs((prev) => [newBlog, ...prev]);
+    const handleImageChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (!file.type.startsWith('image/')) {
+                toast.error('Please select an image file');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error('Image must be less than 5MB');
+                return;
+            }
+            setSelectedImage(file);
+            setImagePreview(URL.createObjectURL(file));
         }
-        resetForm();
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+
+        try {
+            const formDataToSend = new FormData();
+            formDataToSend.append('title', formData.title);
+            formDataToSend.append('content', formData.content || formData.excerpt);
+            formDataToSend.append('excerpt', formData.excerpt);
+            formDataToSend.append('category', formData.category);
+            formDataToSend.append('youtubeUrl', formData.youtubeUrl || '');
+            formDataToSend.append('status', formData.status);
+            formDataToSend.append('featured', formData.featured);
+
+            if (selectedImage) {
+                formDataToSend.append('image', selectedImage);
+            }
+
+            let response;
+            if (editingBlog) {
+                response = await blogAPI.update(editingBlog._id, formDataToSend);
+                toast.success('Blog updated successfully!');
+            } else {
+                response = await blogAPI.create(formDataToSend);
+                toast.success('Blog created successfully!');
+            }
+
+            // Refresh the list
+            await fetchBlogs();
+            resetForm();
+        } catch (error) {
+            console.error('Save failed:', error);
+            toast.error(error.response?.data?.message || 'Failed to save blog');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleEdit = (blog) => {
         setEditingBlog(blog);
         setFormData({
-            title: blog.title,
-            excerpt: blog.excerpt,
+            title: blog.title || '',
+            excerpt: blog.excerpt || '',
             content: blog.content || '',
-            category: blog.category,
+            category: blog.category || 'News',
             youtubeUrl: blog.youtubeUrl || '',
-            published: blog.published,
+            status: blog.status || 'published',
+            featured: blog.featured || false,
         });
+        setImagePreview(blog.image?.url || null);
         setIsDialogOpen(true);
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm('Are you sure you want to delete this blog post?')) {
-            setBlogs((prev) => prev.filter((b) => b.id !== id));
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this blog post?')) {
+            return;
+        }
+
+        try {
+            await blogAPI.delete(id);
+            toast.success('Blog deleted successfully!');
+            await fetchBlogs();
+        } catch (error) {
+            console.error('Delete failed:', error);
+            toast.error(error.response?.data?.message || 'Failed to delete blog');
         }
     };
 
     const resetForm = () => {
-        setFormData({ title: '', excerpt: '', content: '', category: 'News', youtubeUrl: '', published: true });
+        setFormData({ title: '', excerpt: '', content: '', category: 'News', youtubeUrl: '', status: 'published', featured: false });
         setEditingBlog(null);
+        setSelectedImage(null);
+        setImagePreview(null);
         setIsDialogOpen(false);
     };
 
     const filteredBlogs = blogs.filter((blog) =>
-        blog.title.toLowerCase().includes(searchQuery.toLowerCase())
+        blog.title?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -156,15 +233,28 @@ const BlogManager = () => {
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="youtubeUrl">YouTube URL (optional)</Label>
-                                    <Input
-                                        id="youtubeUrl"
-                                        name="youtubeUrl"
-                                        value={formData.youtubeUrl}
+                                    <Label htmlFor="status">Status</Label>
+                                    <select
+                                        id="status"
+                                        name="status"
+                                        value={formData.status}
                                         onChange={handleChange}
-                                        placeholder="https://youtube.com/watch?v=..."
-                                    />
+                                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
+                                    >
+                                        <option value="published">Published</option>
+                                        <option value="draft">Draft</option>
+                                    </select>
                                 </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="youtubeUrl">YouTube URL (optional)</Label>
+                                <Input
+                                    id="youtubeUrl"
+                                    name="youtubeUrl"
+                                    value={formData.youtubeUrl}
+                                    onChange={handleChange}
+                                    placeholder="https://youtube.com/watch?v=..."
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="excerpt">Excerpt *</Label>
@@ -191,32 +281,54 @@ const BlogManager = () => {
                             </div>
                             <div className="space-y-2">
                                 <Label>Featured Image</Label>
-                                <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-                                    <ImageIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                                    <p className="text-sm text-gray-500">Drag & drop or click to upload</p>
-                                    <Input type="file" accept="image/*" className="hidden" id="image-upload" />
-                                    <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => document.getElementById('image-upload')?.click()}>
-                                        Choose File
+                                <div 
+                                    className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center cursor-pointer hover:border-green-400 transition-colors"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    {imagePreview ? (
+                                        <img src={imagePreview} alt="Preview" className="max-h-32 mx-auto rounded" />
+                                    ) : (
+                                        <>
+                                            <ImageIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                                            <p className="text-sm text-gray-500">Drag & drop or click to upload</p>
+                                        </>
+                                    )}
+                                    <input 
+                                        ref={fileInputRef}
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        onChange={handleImageChange}
+                                    />
+                                    <Button type="button" variant="outline" size="sm" className="mt-2">
+                                        {imagePreview ? 'Change Image' : 'Choose File'}
                                     </Button>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
-                                    id="published"
-                                    name="published"
-                                    checked={formData.published}
+                                    id="featured"
+                                    name="featured"
+                                    checked={formData.featured}
                                     onChange={handleChange}
                                     className="rounded border-gray-300"
                                 />
-                                <Label htmlFor="published">Published</Label>
+                                <Label htmlFor="featured">Featured Post</Label>
                             </div>
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={resetForm}>
                                     Cancel
                                 </Button>
-                                <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                                    {editingBlog ? 'Update' : 'Create'} Post
+                                <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={saving}>
+                                    {saving ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>{editingBlog ? 'Update' : 'Create'} Post</>
+                                    )}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -240,10 +352,10 @@ const BlogManager = () => {
                         </TableHeader>
                         <TableBody>
                             {filteredBlogs.map((blog) => (
-                                <TableRow key={blog.id}>
+                                <TableRow key={blog._id}>
                                     <TableCell>
-                                        {blog.image ? (
-                                            <img src={blog.image} alt="" className="w-12 h-12 rounded object-cover" />
+                                        {blog.image?.url ? (
+                                            <img src={blog.image.url} alt="" className="w-12 h-12 rounded object-cover" />
                                         ) : (
                                             <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
                                                 <ImageIcon className="w-6 h-6 text-gray-400" />
@@ -257,10 +369,10 @@ const BlogManager = () => {
                                     <TableCell>
                                         <Badge variant="secondary">{blog.category}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-gray-500">{formatDate(blog.date)}</TableCell>
+                                    <TableCell className="text-gray-500">{formatDate(blog.createdAt)}</TableCell>
                                     <TableCell>
-                                        <Badge className={blog.published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
-                                            {blog.published ? 'Published' : 'Draft'}
+                                        <Badge className={blog.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+                                            {blog.status === 'published' ? 'Published' : 'Draft'}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -268,7 +380,7 @@ const BlogManager = () => {
                                             <Button variant="ghost" size="sm" onClick={() => handleEdit(blog)}>
                                                 <Pencil className="w-4 h-4" />
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(blog.id)}>
+                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(blog._id)}>
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>
                                         </div>

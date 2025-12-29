@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { APP_NAME } from '@/utils/constants';
+import { toast } from 'sonner';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -43,12 +44,38 @@ const Login = () => {
         setLoading(true);
         setError('');
 
-        const result = await login(formData);
+        // DEBUG: Log login attempt details
+        console.group('Login Attempt Debug');
+        console.log('API URL:', import.meta.env.VITE_API_URL);
+        console.log('Email:', formData.email);
+        console.log('Password Length:', formData.password.length);
+        console.log('Timestamp:', new Date().toISOString());
+        console.groupEnd();
 
-        if (result.success) {
-            navigate('/admin');
-        } else {
-            setError(result.error);
+        try {
+            const result = await login(formData);
+
+            console.log('Login Result:', result);
+
+            if (result.success) {
+                toast.success('Successfully logged in!', {
+                    description: 'Welcome back to the dashboard.',
+                });
+                navigate('/admin');
+            } else {
+                const errorMsg = result.error || 'Invalid credentials';
+                setError(errorMsg);
+                toast.error('Login Failed', {
+                    description: errorMsg,
+                });
+                console.error('Login Error:', errorMsg);
+            }
+        } catch (err) {
+            console.error('Unexpected Login Error:', err);
+            toast.error('System Error', {
+                description: 'An unexpected error occurred. Check console for details.',
+            });
+            setError('System error occurred');
         }
 
         setLoading(false);

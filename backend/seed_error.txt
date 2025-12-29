@@ -1,0 +1,5 @@
+{
+  "message": "User validation failed: password: Password must be at least 6 characters",
+  "errors": {},
+  "_message": "User validation failed"
+}

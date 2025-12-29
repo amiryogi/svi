@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
             if (token) {
                 try {
                     const response = await authAPI.getProfile();
-                    setUser(response.data.user);
+                    setUser(response.data.data); // Backend returns { data: {...} }
                 } catch (error) {
                     console.error('Auth initialization failed:', error);
                     logout();
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
     const login = async (credentials) => {
         try {
             const response = await authAPI.login(credentials);
-            const { token: newToken, user: userData } = response.data;
+            const { token: newToken, data: userData } = response.data;
 
             localStorage.setItem('token', newToken);
             localStorage.setItem('user', JSON.stringify(userData));

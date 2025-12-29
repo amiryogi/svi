@@ -34,6 +34,12 @@ const getHero = async (req, res, next) => {
  */
 const updateHero = async (req, res, next) => {
     try {
+        // DEBUG: Log incoming request
+        console.log('=== HERO UPDATE DEBUG ===');
+        console.log('req.file:', req.file);
+        console.log('req.body:', req.body);
+        console.log('=========================');
+
         const {
             overlayTitle,
             overlaySubtitle,
@@ -59,6 +65,7 @@ const updateHero = async (req, res, next) => {
 
         // Handle video upload
         if (req.file) {
+            console.log('Video file received:', req.file.path, req.file.filename);
             // Delete old video
             if (hero?.video?.cloudinaryId) {
                 await deleteFromCloudinary(hero.video.cloudinaryId, 'video');
@@ -68,6 +75,8 @@ const updateHero = async (req, res, next) => {
                 url: req.file.path,
                 cloudinaryId: req.file.filename,
             };
+        } else {
+            console.log('No video file in request');
         }
 
         if (hero) {
@@ -88,6 +97,7 @@ const updateHero = async (req, res, next) => {
             data: hero,
         });
     } catch (error) {
+        console.error('Hero update error:', error);
         next(error);
     }
 };

@@ -9,6 +9,7 @@ import Academics from '@/pages/Academics';
 import Admissions from '@/pages/Admissions';
 import Blog from '@/pages/Blog';
 import BlogDetail from '@/pages/BlogDetail';
+import NoticeDetail from '@/pages/NoticeDetail';
 import Gallery from '@/pages/Gallery';
 import Faculty from '@/pages/Faculty';
 import Contact from '@/pages/Contact';
@@ -28,6 +29,8 @@ import MessagesViewer from '@/admin/pages/MessagesViewer';
 
 import './index.css';
 
+import { Toaster } from 'sonner';
+
 function App() {
   return (
     <AuthProvider>
@@ -44,6 +47,7 @@ function App() {
             <Route path="gallery" element={<Gallery />} />
             <Route path="faculty" element={<Faculty />} />
             <Route path="contact" element={<Contact />} />
+            <Route path="notices/:id" element={<NoticeDetail />} />
           </Route>
 
           {/* Admin Login Route */}
@@ -62,6 +66,7 @@ function App() {
             <Route path="messages" element={<MessagesViewer />} />
           </Route>
         </Routes>
+        <Toaster richColors position="top-right" />
       </Router>
     </AuthProvider>
   );

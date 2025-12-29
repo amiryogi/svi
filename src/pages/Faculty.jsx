@@ -1,46 +1,58 @@
-import { useState } from 'react';
-import { Search, Mail, Phone } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Mail, Phone, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getInitials } from '@/utils/helpers';
+import { teachersAPI } from '@/api';
 
 const Faculty = () => {
+    const [facultyMembers, setFacultyMembers] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeDepartment, setActiveDepartment] = useState('All');
 
-    const departments = ['All', 'Management', 'Science', 'Mathematics', 'Languages', 'Primary', 'Kindergarten'];
+    const departments = ['All', 'Management', 'Science', 'Mathematics', 'Languages', 'Primary', 'Kindergarten', 'Administration'];
 
-    // Sample faculty data - would come from API
-    const facultyMembers = [
-        { id: 1, name: 'Ram Prasad Sharma', position: 'Principal', department: 'Management', email: 'principal@svischool.edu.np', phone: '+977-1-1234567', image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop', qualification: 'M.Ed, M.Phil' },
-        { id: 2, name: 'Sita Devi Poudel', position: 'Vice Principal', department: 'Languages', email: 'vp@svischool.edu.np', phone: '+977-1-1234568', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop', qualification: 'M.A. English' },
-        { id: 3, name: 'Dr. Krishna Prasad Adhikari', position: 'Head of Science', department: 'Science', email: 'science@svischool.edu.np', phone: '+977-1-1234569', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop', qualification: 'Ph.D. Physics' },
-        { id: 4, name: 'Laxmi Kumari Shrestha', position: 'Head of Mathematics', department: 'Mathematics', email: 'math@svischool.edu.np', phone: '+977-1-1234570', image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop', qualification: 'M.Sc. Mathematics' },
-        { id: 5, name: 'Hari Bahadur Thapa', position: 'Chemistry Teacher', department: 'Science', email: 'hari@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop', qualification: 'M.Sc. Chemistry' },
-        { id: 6, name: 'Gita Devi Maharjan', position: 'Biology Teacher', department: 'Science', email: 'gita@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop', qualification: 'M.Sc. Botany' },
-        { id: 7, name: 'Bishnu Prasad Kafle', position: 'Nepali Teacher', department: 'Languages', email: 'bishnu@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop', qualification: 'M.A. Nepali' },
-        { id: 8, name: 'Maya Tamang', position: 'English Teacher', department: 'Languages', email: 'maya@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop', qualification: 'M.A. English' },
-        { id: 9, name: 'Santosh Kumar Yadav', position: 'Mathematics Teacher', department: 'Mathematics', email: 'santosh@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop', qualification: 'M.Sc. Mathematics' },
-        { id: 10, name: 'Sunita Sharma', position: 'Primary Coordinator', department: 'Primary', email: 'sunita@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop', qualification: 'M.Ed.' },
-        { id: 11, name: 'Kamala Rai', position: 'KG Coordinator', department: 'Kindergarten', email: 'kamala@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop', qualification: 'M.Ed. Early Childhood' },
-        { id: 12, name: 'Dipak Karki', position: 'Accounts Teacher', department: 'Management', email: 'dipak@svischool.edu.np', phone: '', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop', qualification: 'MBS' },
-    ];
+    // Fetch faculty on mount
+    useEffect(() => {
+        const fetchFaculty = async () => {
+            try {
+                const response = await teachersAPI.getAll();
+                if (response.data.data) {
+                    setFacultyMembers(response.data.data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch faculty:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchFaculty();
+    }, []);
 
     const filteredFaculty = facultyMembers.filter((member) => {
         const matchesDepartment = activeDepartment === 'All' || member.department === activeDepartment;
-        const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            member.position.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            member.position?.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesDepartment && matchesSearch;
     });
 
     // Separate leadership from other faculty
     const leadership = filteredFaculty.filter((m) =>
-        m.position.includes('Principal') || m.position.includes('Head') || m.position.includes('Coordinator')
+        m.position?.includes('Principal') || m.position?.includes('Head') || m.position?.includes('Coordinator')
     );
     const teachers = filteredFaculty.filter((m) =>
-        !m.position.includes('Principal') && !m.position.includes('Head') && !m.position.includes('Coordinator')
+        !m.position?.includes('Principal') && !m.position?.includes('Head') && !m.position?.includes('Coordinator')
     );
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="py-12">
@@ -95,12 +107,12 @@ const Faculty = () => {
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">School Leadership</h2>
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {leadership.map((member) => (
-                                    <Card key={member.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
+                                    <Card key={member._id} className="border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
                                         <div className="h-2 bg-gradient-to-r from-green-500 to-green-600" />
                                         <CardContent className="p-6">
                                             <div className="flex items-start gap-4">
                                                 <Avatar className="w-20 h-20 border-4 border-green-100">
-                                                    <AvatarImage src={member.image} alt={member.name} />
+                                                    <AvatarImage src={member.image?.url} alt={member.name} />
                                                     <AvatarFallback className="bg-green-100 text-green-700 text-xl">
                                                         {getInitials(member.name)}
                                                     </AvatarFallback>
@@ -145,10 +157,10 @@ const Faculty = () => {
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">Teaching Staff</h2>
                             <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {teachers.map((member) => (
-                                    <Card key={member.id} className="border-0 shadow-md hover:shadow-lg transition-shadow text-center">
+                                    <Card key={member._id} className="border-0 shadow-md hover:shadow-lg transition-shadow text-center">
                                         <CardContent className="p-6">
                                             <Avatar className="w-24 h-24 mx-auto mb-4 border-4 border-gray-100">
-                                                <AvatarImage src={member.image} alt={member.name} />
+                                                <AvatarImage src={member.image?.url} alt={member.name} />
                                                 <AvatarFallback className="bg-green-100 text-green-700 text-2xl">
                                                     {getInitials(member.name)}
                                                 </AvatarFallback>
