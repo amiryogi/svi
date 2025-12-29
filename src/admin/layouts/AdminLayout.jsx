@@ -13,7 +13,9 @@ import {
     LogOut,
     Menu,
     X,
-    ChevronLeft
+    ChevronLeft,
+    Files,
+    Navigation
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -40,6 +42,8 @@ const AdminLayout = () => {
         { icon: Users, label: 'Teachers', path: '/admin/teachers' },
         { icon: ClipboardList, label: 'Inquiries', path: '/admin/inquiries' },
         { icon: MessageSquare, label: 'Messages', path: '/admin/messages' },
+        { icon: Files, label: 'Pages', path: '/admin/pages' },
+        { icon: Navigation, label: 'Menu', path: '/admin/menu' },
     ];
 
     if (loading) {

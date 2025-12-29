@@ -13,6 +13,7 @@ import NoticeDetail from '@/pages/NoticeDetail';
 import Gallery from '@/pages/Gallery';
 import Faculty from '@/pages/Faculty';
 import Contact from '@/pages/Contact';
+import DynamicPage from '@/pages/DynamicPage';
 
 // Admin Layout & Pages
 import AdminLayout from '@/admin/layouts/AdminLayout';
@@ -26,6 +27,8 @@ import GalleryManager from '@/admin/pages/GalleryManager';
 import TeachersManager from '@/admin/pages/TeachersManager';
 import InquiriesViewer from '@/admin/pages/InquiriesViewer';
 import MessagesViewer from '@/admin/pages/MessagesViewer';
+import PageManager from '@/admin/pages/PageManager';
+import MenuManager from '@/admin/pages/MenuManager';
 
 import './index.css';
 
@@ -48,6 +51,7 @@ function App() {
             <Route path="faculty" element={<Faculty />} />
             <Route path="contact" element={<Contact />} />
             <Route path="notices/:id" element={<NoticeDetail />} />
+            <Route path="pages/:slug" element={<DynamicPage />} />
           </Route>
 
           {/* Admin Login Route */}
@@ -64,6 +68,8 @@ function App() {
             <Route path="teachers" element={<TeachersManager />} />
             <Route path="inquiries" element={<InquiriesViewer />} />
             <Route path="messages" element={<MessagesViewer />} />
+            <Route path="pages" element={<PageManager />} />
+            <Route path="menu" element={<MenuManager />} />
           </Route>
         </Routes>
         <Toaster richColors position="top-right" />

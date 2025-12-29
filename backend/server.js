@@ -47,6 +47,9 @@ app.use('/api/teachers', require('./routes/teacherRoutes'));
 app.use('/api/inquiries', require('./routes/inquiryRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/hero', require('./routes/heroRoutes'));
+app.use('/api/pages', require('./routes/pageRoutes'));
+app.use('/api/navigation', require('./routes/navigationRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // Health check

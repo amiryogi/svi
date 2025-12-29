@@ -84,6 +84,25 @@ export const messagesAPI = {
     delete: (id) => api.delete(`/messages/${id}`),
 };
 
+export const pagesAPI = {
+    getAll: () => api.get('/pages'),
+    getBySlug: (slug) => api.get(`/pages/${slug}`),
+    create: (data) => api.post('/pages', data),
+    update: (id, data) => api.put(`/pages/${id}`, data),
+    delete: (id) => api.delete(`/pages/${id}`),
+};
+
+export const navigationAPI = {
+    get: () => api.get('/navigation'),
+    update: (data) => api.put('/navigation', data),
+};
+
+export const uploadAPI = {
+    image: (formData) => api.post('/upload/image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+};
+
 export const statsAPI = {
     getDashboard: () => api.get('/stats/dashboard'),
 };
